@@ -8,71 +8,68 @@ import (
 
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 {
-		fmt.Println(`Usage: ccwc [option] <file>
-		Options:
-			-c  Count the number of bytes in the file.
-			-l  Count the number of lines in the file.
-			-w  Count the number of words in the file.
-			-m  Count the number of characters in the file.
-		Example:
-			ccwc -c myfile.txt`)
+		printUsage()
 		os.Exit(1)
 	}
 
 	filename := os.Args[len(os.Args)-1] // Last argument is the filename
 
 	if len(os.Args) == 2 { // No option provided, default to -c, -l, -w
-		lineCount, err := countLines(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		wordCount, err := countWords(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		byteCount, err := countBytes(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		fmt.Printf("%8d %8d %8d %s\n", lineCount, wordCount, byteCount, filename)
+		handleCounts(filename, true, true, true, false)
 		return
 	}
 
 	option := os.Args[1]
-
 	switch option {
 	case "-c":
-		byteCount, err := countBytes(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		fmt.Printf("%8d %s\n", byteCount, filename)
+		handleCounts(filename, false, false, true, false)
 	case "-l":
-		lineCount, err := countLines(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		fmt.Printf("%8d %s\n", lineCount, filename)
+		handleCounts(filename, true, false, false, false)
 	case "-w":
-		wordCount, err := countWords(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		fmt.Printf("%8d %s\n", wordCount, filename)
+		handleCounts(filename, false, true, false, false)
 	case "-m":
-		charCount, err := countCharacters(filename)
-		if err != nil {
-			exitWithError(err)
-		}
-		fmt.Printf("%8d %s\n", charCount, filename)
+		handleCounts(filename, false, false, false, true)
 	default:
-		fmt.Println(`Invalid option. Available options are:
-			-c  Count the number of bytes in the file.
-			-l  Count the number of lines in the file.
-			-w  Count the number of words in the file.
-			-m  Count the number of characters in the file.
-		Please check the usage instructions for more information.`)
+		fmt.Println("Invalid option.")
+		printUsage()
 		os.Exit(1)
+	}
+}
+
+func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool) {
+	lineCount, wordCount, byteCount, charCount := 0, 0, 0, 0
+	var err error
+
+	if countLinesFlag {
+		lineCount, err = countLines(filename)
+		handleError(err)
+	}
+
+	if countWordsFlag {
+		wordCount, err = countWords(filename)
+		handleError(err)
+	}
+
+	if countBytesFlag {
+		byteCount, err = countBytes(filename)
+		handleError(err)
+	}
+
+	if countCharsFlag {
+		charCount, err = countCharacters(filename)
+		handleError(err)
+	}
+
+	if countLinesFlag && countWordsFlag && countBytesFlag {
+		fmt.Printf("%8d %8d %8d %s\n", lineCount, wordCount, byteCount, filename)
+	} else if countLinesFlag {
+		fmt.Printf("%8d %s\n", lineCount, filename)
+	} else if countWordsFlag {
+		fmt.Printf("%8d %s\n", wordCount, filename)
+	} else if countBytesFlag {
+		fmt.Printf("%8d %s\n", byteCount, filename)
+	} else if countCharsFlag {
+		fmt.Printf("%8d %s\n", charCount, filename)
 	}
 }
 
@@ -131,18 +128,29 @@ func countCharacters(filename string) (int, error) {
 	charCount := 0
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanRunes) // Split by runes (characters)
-
 	for scanner.Scan() {
 		charCount++
 	}
 	if err := scanner.Err(); err != nil {
 		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
 	}
-
 	return charCount, nil
 }
 
-func exitWithError(err error) {
-	fmt.Println(err)
-	os.Exit(1)
+func handleError(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func printUsage() {
+	fmt.Println(`Usage: ccwc [option] <file>
+Options:
+	-c  Count the number of bytes in the file.
+	-l  Count the number of lines in the file.
+	-w  Count the number of words in the file.
+	-m  Count the number of characters in the file.
+Example:
+	ccwc -c myfile.txt`)
 }
