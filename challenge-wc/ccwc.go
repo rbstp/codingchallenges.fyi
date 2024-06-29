@@ -8,7 +8,13 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Println("Usage: ccwc -c <file> or ccwc -l <file>")
+		fmt.Println(`Usage: ccwc [option] <file>
+		Options:
+			-c  Count the number of bytes in the file.
+			-l  Count the number of lines in the file.
+			-w  Count the number of words in the file.
+		Example:
+			ccwc -c myfile.txt`)
 		os.Exit(1)
 	}
 
@@ -28,8 +34,18 @@ func main() {
 			exitWithError(err)
 		}
 		fmt.Printf("%d %s\n", lineCount, filename)
+	case "-w":
+		wordCount, err := countWords(filename)
+		if err != nil {
+			exitWithError(err)
+		}
+		fmt.Printf("%d %s\n", wordCount, filename)
 	default:
-		fmt.Println("Invalid option. Use -c for byte count or -l for line count.")
+		fmt.Println(`Invalid option. Available options are:
+			-c  Count the number of bytes in the file.
+			-l  Count the number of lines in the file.
+			-w  Count the number of words in the file.
+		Please check the usage instructions for more information.`)
 		os.Exit(1)
 	}
 }
@@ -58,6 +74,25 @@ func countLines(filename string) (int, error) {
 		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
 	}
 	return lineCount, nil
+}
+
+func countWords(filename string) (int, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return 0, fmt.Errorf("error opening file %s: %v", filename, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanWords)
+	wordCount := 0
+	for scanner.Scan() {
+		wordCount++
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
+	}
+	return wordCount, nil
 }
 
 func exitWithError(err error) {
