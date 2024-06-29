@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	if len(os.Args) < 2 || len(os.Args) > 3 {
 		fmt.Println(`Usage: ccwc [option] <file>
 		Options:
 			-c  Count the number of bytes in the file.
@@ -19,8 +19,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	filename := os.Args[len(os.Args)-1] // Last argument is the filename
+
+	if len(os.Args) == 2 { // No option provided, default to -c, -l, -w
+		lineCount, err := countLines(filename)
+		if err != nil {
+			exitWithError(err)
+		}
+		wordCount, err := countWords(filename)
+		if err != nil {
+			exitWithError(err)
+		}
+		byteCount, err := countBytes(filename)
+		if err != nil {
+			exitWithError(err)
+		}
+		fmt.Printf("%8d %8d %8d %s\n", lineCount, wordCount, byteCount, filename)
+		return
+	}
+
 	option := os.Args[1]
-	filename := os.Args[2]
 
 	switch option {
 	case "-c":
@@ -28,25 +46,25 @@ func main() {
 		if err != nil {
 			exitWithError(err)
 		}
-		fmt.Printf("%d %s\n", byteCount, filename)
+		fmt.Printf("%8d %s\n", byteCount, filename)
 	case "-l":
 		lineCount, err := countLines(filename)
 		if err != nil {
 			exitWithError(err)
 		}
-		fmt.Printf("%d %s\n", lineCount, filename)
+		fmt.Printf("%8d %s\n", lineCount, filename)
 	case "-w":
 		wordCount, err := countWords(filename)
 		if err != nil {
 			exitWithError(err)
 		}
-		fmt.Printf("%d %s\n", wordCount, filename)
+		fmt.Printf("%8d %s\n", wordCount, filename)
 	case "-m":
 		charCount, err := countCharacters(filename)
 		if err != nil {
 			exitWithError(err)
 		}
-		fmt.Printf("%d %s\n", charCount, filename)
+		fmt.Printf("%8d %s\n", charCount, filename)
 	default:
 		fmt.Println(`Invalid option. Available options are:
 			-c  Count the number of bytes in the file.
