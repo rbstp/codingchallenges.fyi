@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -49,42 +50,31 @@ func main() {
 }
 
 func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool, useStdin bool) {
+	var reader io.Reader
+	if useStdin {
+		reader = os.Stdin
+	} else {
+		file, err := os.Open(filename)
+		if err != nil {
+			handleError(fmt.Errorf("error opening file %s: %v", filename, err))
+		}
+		defer file.Close()
+		reader = file
+	}
+
 	lineCount, wordCount, byteCount, charCount := 0, 0, 0, 0
 	var err error
 
-	if countLinesFlag {
-		if useStdin {
-			lineCount, err = countLinesFromStdin()
-		} else {
-			lineCount, err = countLines(filename)
-		}
-		handleError(err)
-	}
-
-	if countWordsFlag {
-		if useStdin {
-			wordCount, err = countWordsFromStdin()
-		} else {
-			wordCount, err = countWords(filename)
-		}
+	if countLinesFlag || countWordsFlag || countCharsFlag {
+		lineCount, wordCount, charCount, err = countLinesWordsChars(reader, countLinesFlag, countWordsFlag, countCharsFlag)
 		handleError(err)
 	}
 
 	if countBytesFlag {
-		if useStdin {
-			byteCount, err = countBytesFromStdin()
-		} else {
-			byteCount, err = countBytes(filename)
+		if seeker, ok := reader.(io.Seeker); ok {
+			seeker.Seek(0, io.SeekStart)
 		}
-		handleError(err)
-	}
-
-	if countCharsFlag {
-		if useStdin {
-			charCount, err = countCharactersFromStdin()
-		} else {
-			charCount, err = countCharacters(filename)
-		}
+		byteCount, err = countBytes(reader)
 		handleError(err)
 	}
 
@@ -101,100 +91,37 @@ func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFla
 	}
 }
 
-func countBytes(filename string) (int, error) {
-	content, err := os.ReadFile(filename)
+func countBytes(reader io.Reader) (int, error) {
+	content, err := io.ReadAll(reader)
 	if err != nil {
-		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
+		return 0, fmt.Errorf("error reading: %v", err)
 	}
 	return len(content), nil
 }
 
-func countBytesFromStdin() (int, error) {
-	content, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return 0, fmt.Errorf("error reading from stdin: %v", err)
-	}
-	return len(content), nil
-}
-
-func countLines(filename string) (int, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %s: %v", filename, err)
-	}
-	defer file.Close()
-
-	return countLinesFromReader(file)
-}
-
-func countLinesFromStdin() (int, error) {
-	return countLinesFromReader(os.Stdin)
-}
-
-func countLinesFromReader(reader io.Reader) (int, error) {
-	lineCount := 0
+func countLinesWordsChars(reader io.Reader, countLinesFlag, countWordsFlag, countCharsFlag bool) (int, int, int, error) {
+	lineCount, wordCount, charCount := 0, 0, 0
 	scanner := bufio.NewScanner(reader)
+
 	for scanner.Scan() {
-		lineCount++
+		if countLinesFlag {
+			lineCount++
+		}
+		if countWordsFlag || countCharsFlag {
+			text := scanner.Text()
+			if countWordsFlag {
+				wordCount += len(strings.Fields(text))
+			}
+			if countCharsFlag {
+				charCount += len([]rune(text))
+			}
+		}
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading: %v", err)
+		return 0, 0, 0, fmt.Errorf("error reading: %v", err)
 	}
-	return lineCount, nil
-}
 
-func countWords(filename string) (int, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %s: %v", filename, err)
-	}
-	defer file.Close()
-
-	return countWordsFromReader(file)
-}
-
-func countWordsFromStdin() (int, error) {
-	return countWordsFromReader(os.Stdin)
-}
-
-func countWordsFromReader(reader io.Reader) (int, error) {
-	wordCount := 0
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanWords)
-	for scanner.Scan() {
-		wordCount++
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading: %v", err)
-	}
-	return wordCount, nil
-}
-
-func countCharacters(filename string) (int, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, fmt.Errorf("error opening file %s: %v", filename, err)
-	}
-	defer file.Close()
-
-	return countCharactersFromReader(file)
-}
-
-func countCharactersFromStdin() (int, error) {
-	return countCharactersFromReader(os.Stdin)
-}
-
-func countCharactersFromReader(reader io.Reader) (int, error) {
-	charCount := 0
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanRunes)
-	for scanner.Scan() {
-		charCount++
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading: %v", err)
-	}
-	return charCount, nil
+	return lineCount, wordCount, charCount, nil
 }
 
 func handleError(err error) {
