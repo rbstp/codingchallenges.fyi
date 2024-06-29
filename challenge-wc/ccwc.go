@@ -28,20 +28,20 @@ func main() {
 	}
 
 	if len(os.Args) == 2 && filename != "" { // No option provided, default to -c, -l, -w
-		handleCounts(filename, true, true, true, false, useStdin)
+		handleCounts(os.Stdin, filename, true, true, true, false, useStdin)
 		return
 	}
 
 	option := os.Args[1]
 	switch option {
 	case "-c":
-		handleCounts(filename, false, false, true, false, useStdin)
+		handleCounts(os.Stdin, filename, false, false, true, false, useStdin)
 	case "-l":
-		handleCounts(filename, true, false, false, false, useStdin)
+		handleCounts(os.Stdin, filename, true, false, false, false, useStdin)
 	case "-w":
-		handleCounts(filename, false, true, false, false, useStdin)
+		handleCounts(os.Stdin, filename, false, true, false, false, useStdin)
 	case "-m":
-		handleCounts(filename, false, false, false, true, useStdin)
+		handleCounts(os.Stdin, filename, false, false, false, true, useStdin)
 	default:
 		fmt.Println("Invalid option.")
 		printUsage()
@@ -49,10 +49,10 @@ func main() {
 	}
 }
 
-func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool, useStdin bool) {
+func handleCounts(stdin io.Reader, filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool, useStdin bool) {
 	var reader io.Reader
 	if useStdin {
-		reader = os.Stdin
+		reader = stdin
 	} else {
 		file, err := os.Open(filename)
 		if err != nil {
