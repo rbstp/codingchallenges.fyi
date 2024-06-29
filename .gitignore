@@ -8,6 +8,7 @@
 *.so
 *.dylib
 **/ccwc
+**/challenge-wc-cobra
 
 # Test binary, built with `go test -c`
 *.test
