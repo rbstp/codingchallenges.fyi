@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -12,23 +13,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	filename := os.Args[len(os.Args)-1] // Last argument is the filename
+	var filename string
+	var useStdin bool
 
-	if len(os.Args) == 2 { // No option provided, default to -c, -l, -w
-		handleCounts(filename, true, true, true, false)
+	if len(os.Args) == 2 {
+		if os.Args[1][0] == '-' {
+			useStdin = true
+		} else {
+			filename = os.Args[1]
+		}
+	} else {
+		filename = os.Args[2]
+	}
+
+	if len(os.Args) == 2 && filename != "" { // No option provided, default to -c, -l, -w
+		handleCounts(filename, true, true, true, false, useStdin)
 		return
 	}
 
 	option := os.Args[1]
 	switch option {
 	case "-c":
-		handleCounts(filename, false, false, true, false)
+		handleCounts(filename, false, false, true, false, useStdin)
 	case "-l":
-		handleCounts(filename, true, false, false, false)
+		handleCounts(filename, true, false, false, false, useStdin)
 	case "-w":
-		handleCounts(filename, false, true, false, false)
+		handleCounts(filename, false, true, false, false, useStdin)
 	case "-m":
-		handleCounts(filename, false, false, false, true)
+		handleCounts(filename, false, false, false, true, useStdin)
 	default:
 		fmt.Println("Invalid option.")
 		printUsage()
@@ -36,27 +48,43 @@ func main() {
 	}
 }
 
-func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool) {
+func handleCounts(filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool, useStdin bool) {
 	lineCount, wordCount, byteCount, charCount := 0, 0, 0, 0
 	var err error
 
 	if countLinesFlag {
-		lineCount, err = countLines(filename)
+		if useStdin {
+			lineCount, err = countLinesFromStdin()
+		} else {
+			lineCount, err = countLines(filename)
+		}
 		handleError(err)
 	}
 
 	if countWordsFlag {
-		wordCount, err = countWords(filename)
+		if useStdin {
+			wordCount, err = countWordsFromStdin()
+		} else {
+			wordCount, err = countWords(filename)
+		}
 		handleError(err)
 	}
 
 	if countBytesFlag {
-		byteCount, err = countBytes(filename)
+		if useStdin {
+			byteCount, err = countBytesFromStdin()
+		} else {
+			byteCount, err = countBytes(filename)
+		}
 		handleError(err)
 	}
 
 	if countCharsFlag {
-		charCount, err = countCharacters(filename)
+		if useStdin {
+			charCount, err = countCharactersFromStdin()
+		} else {
+			charCount, err = countCharacters(filename)
+		}
 		handleError(err)
 	}
 
@@ -81,6 +109,14 @@ func countBytes(filename string) (int, error) {
 	return len(content), nil
 }
 
+func countBytesFromStdin() (int, error) {
+	content, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return 0, fmt.Errorf("error reading from stdin: %v", err)
+	}
+	return len(content), nil
+}
+
 func countLines(filename string) (int, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -88,13 +124,21 @@ func countLines(filename string) (int, error) {
 	}
 	defer file.Close()
 
+	return countLinesFromReader(file)
+}
+
+func countLinesFromStdin() (int, error) {
+	return countLinesFromReader(os.Stdin)
+}
+
+func countLinesFromReader(reader io.Reader) (int, error) {
 	lineCount := 0
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		lineCount++
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
+		return 0, fmt.Errorf("error reading: %v", err)
 	}
 	return lineCount, nil
 }
@@ -106,14 +150,22 @@ func countWords(filename string) (int, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanWords)
+	return countWordsFromReader(file)
+}
+
+func countWordsFromStdin() (int, error) {
+	return countWordsFromReader(os.Stdin)
+}
+
+func countWordsFromReader(reader io.Reader) (int, error) {
 	wordCount := 0
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
 		wordCount++
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
+		return 0, fmt.Errorf("error reading: %v", err)
 	}
 	return wordCount, nil
 }
@@ -125,14 +177,22 @@ func countCharacters(filename string) (int, error) {
 	}
 	defer file.Close()
 
+	return countCharactersFromReader(file)
+}
+
+func countCharactersFromStdin() (int, error) {
+	return countCharactersFromReader(os.Stdin)
+}
+
+func countCharactersFromReader(reader io.Reader) (int, error) {
 	charCount := 0
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanRunes) // Split by runes (characters)
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanRunes)
 	for scanner.Scan() {
 		charCount++
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("error reading file %s: %v", filename, err)
+		return 0, fmt.Errorf("error reading: %v", err)
 	}
 	return charCount, nil
 }
@@ -152,5 +212,5 @@ Options:
 	-w  Count the number of words in the file.
 	-m  Count the number of characters in the file.
 Example:
-	ccwc -c myfile.txt`)
+	cat test.txt | ccwc -l`)
 }
