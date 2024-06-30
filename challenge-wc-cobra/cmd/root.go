@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -10,26 +11,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "ccwc-cobra",
-	Short: "ccwc-cobra is a CLI tool to count lines, words, characters, and bytes in a file",
-	Long: `A fast and flexible command line tool built in Go to count lines, words,
-characters, and bytes in a file or standard input.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		filename := ""
-		if len(args) > 0 {
-			filename = args[0]
-		}
-		handleCounts(os.Stdin, filename, true, true, true, false, filename == "")
-	},
-}
-
 var (
 	countLinesFlag bool
 	countWordsFlag bool
 	countBytesFlag bool
 	countCharsFlag bool
 )
+
+var rootCmd = &cobra.Command{
+	Use:   "challenge-wc-cobra [file]",
+	Short: "challenge-wc-cobra is a CLI tool to count lines, words, characters, and bytes in a file",
+	Long: `A fast and flexible command line tool built in Go to count lines, words,
+characters, and bytes in a file or standard input.`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		filename := ""
+		if len(args) > 0 {
+			filename = args[0]
+		}
+		if !countLinesFlag && !countWordsFlag && !countBytesFlag && !countCharsFlag {
+			countLinesFlag = true
+			countWordsFlag = true
+			countBytesFlag = true
+		}
+		handleCounts(os.Stdin, filename, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag, filename == "")
+	},
+}
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
@@ -43,82 +50,31 @@ func init() {
 	rootCmd.Flags().BoolVarP(&countWordsFlag, "words", "w", false, "Count words")
 	rootCmd.Flags().BoolVarP(&countBytesFlag, "bytes", "c", false, "Count bytes")
 	rootCmd.Flags().BoolVarP(&countCharsFlag, "chars", "m", false, "Count characters")
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "lines [file]",
-		Short: "Count lines in a file",
-		Run: func(cmd *cobra.Command, args []string) {
-			filename := ""
-			if len(args) > 0 {
-				filename = args[0]
-			}
-			handleCounts(os.Stdin, filename, true, false, false, false, filename == "")
-		},
-	})
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "words [file]",
-		Short: "Count words in a file",
-		Run: func(cmd *cobra.Command, args []string) {
-			filename := ""
-			if len(args) > 0 {
-				filename = args[0]
-			}
-			handleCounts(os.Stdin, filename, false, true, false, false, filename == "")
-		},
-	})
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "bytes [file]",
-		Short: "Count bytes in a file",
-		Run: func(cmd *cobra.Command, args []string) {
-			filename := ""
-			if len(args) > 0 {
-				filename = args[0]
-			}
-			handleCounts(os.Stdin, filename, false, false, true, false, filename == "")
-		},
-	})
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "chars [file]",
-		Short: "Count characters in a file",
-		Run: func(cmd *cobra.Command, args []string) {
-			filename := ""
-			if len(args) > 0 {
-				filename = args[0]
-			}
-			handleCounts(os.Stdin, filename, false, false, false, true, filename == "")
-		},
-	})
 }
 
 func handleCounts(stdin io.Reader, filename string, countLinesFlag, countWordsFlag, countBytesFlag, countCharsFlag bool, useStdin bool) {
-	var reader io.Reader
+	var buffer bytes.Buffer
 	if useStdin {
-		reader = stdin
+		io.Copy(&buffer, stdin)
 	} else {
 		file, err := os.Open(filename)
 		if err != nil {
 			handleError(fmt.Errorf("error opening file %s: %v", filename, err))
 		}
 		defer file.Close()
-		reader = file
+		io.Copy(&buffer, file)
 	}
 
 	lineCount, wordCount, byteCount, charCount := 0, 0, 0, 0
 	var err error
 
 	if countLinesFlag || countWordsFlag || countCharsFlag {
-		lineCount, wordCount, charCount, err = countLinesWordsChars(reader, countLinesFlag, countWordsFlag, countCharsFlag)
+		lineCount, wordCount, charCount, err = countLinesWordsChars(bytes.NewReader(buffer.Bytes()), countLinesFlag, countWordsFlag, countCharsFlag)
 		handleError(err)
 	}
 
 	if countBytesFlag {
-		if seeker, ok := reader.(io.Seeker); ok {
-			seeker.Seek(0, io.SeekStart)
-		}
-		byteCount, err = countBytes(reader)
+		byteCount, err = countBytes(bytes.NewReader(buffer.Bytes()))
 		handleError(err)
 	}
 
