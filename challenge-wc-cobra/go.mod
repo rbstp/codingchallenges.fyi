@@ -1,4 +1,4 @@
-module ccwc-cobra
+module github.com/rbstp/codingchallenges.fyi/challenge-wc-cobra
 
 go 1.22.4
 

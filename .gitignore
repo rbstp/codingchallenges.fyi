@@ -8,7 +8,7 @@
 *.so
 *.dylib
 **/ccwc
-**/ccwc-cobra
+**/challenge-wc-cobra/challenge-wc-cobra
 
 # Test binary, built with `go test -c`
 *.test
